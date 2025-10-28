@@ -13,6 +13,15 @@ import java.awt.Dimension;
 public class GUI {
 
     public static void main(String[] args) {
+        LanguageCodeConverter codeConverter = new LanguageCodeConverter();
+        String[] languageCodes = {"de", "en", "zh", "es", "fr"};
+        String[] languageNames = new String[languageCodes.length];
+
+        for (int i = 0; i < languageCodes.length; i++) {
+            String name = codeConverter.fromLanguageCode(languageCodes[i]);
+            languageNames[i] = (name != null) ? name : languageCodes[i];
+        }
+
         SwingUtilities.invokeLater(() -> {
             JPanel countryPanel = new JPanel();
             JTextField countryField = new JTextField(10);
@@ -23,15 +32,11 @@ public class GUI {
 
 
             JPanel languagePanel = new JPanel();
-            // Available language codes for CanadaTranslator
-            String[] languages = {"de", "en", "zh","es", "fr"};
-            JList<String> languageList = new JList<>(languages);
+            JList<String> languageList = new JList<>(languageNames);
             languageList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-            // Default selection to "eng"
             languageList.setSelectedIndex(0);
             JScrollPane languageScrollPane = new JScrollPane(languageList);
 
-            // FIX: Set a more appropriate size for the scrollable list
             languageScrollPane.setPreferredSize(new Dimension(80, 60));
             languagePanel.setLayout(new BoxLayout(languagePanel, BoxLayout.Y_AXIS));
             languagePanel.add(new JLabel("Select Language:"));
@@ -46,17 +51,20 @@ public class GUI {
             JLabel resultLabel = new JLabel("\t\t\t\t\t\t\t");
             buttonPanel.add(resultLabel);
 
-            // adding listener for when the user clicks the submit button
             submit.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    String language = languageList.getSelectedValue();
-                    String country = countryField.getText();
+                    // Get the selected index from the list
+                    int selectedIndex = languageList.getSelectedIndex();
 
-                    if (language == null) {
+                    if (selectedIndex == -1) {
                         resultLabel.setText("Please select a language!");
                         return;
                     }
+
+                    // Use the index to look up the correct language code
+                    String language = languageCodes[selectedIndex];
+                    String country = countryField.getText();
 
                     // for now, just using our simple translator, but
                     // we'll need to use the real JSON version later.
