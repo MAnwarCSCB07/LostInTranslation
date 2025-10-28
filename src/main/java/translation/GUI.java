@@ -2,6 +2,7 @@ package translation;
 
 import javax.swing.*;
 import java.awt.event.*;
+import java.awt.Dimension;
 
 
 // TODO Task D: Update the GUI for the program to align with UI shown in the README example.
@@ -20,10 +21,21 @@ public class GUI {
             countryPanel.add(new JLabel("Country:"));
             countryPanel.add(countryField);
 
+
             JPanel languagePanel = new JPanel();
-            JTextField languageField = new JTextField(10);
-            languagePanel.add(new JLabel("Language:"));
-            languagePanel.add(languageField);
+            // Available language codes for CanadaTranslator
+            String[] languages = {"de", "en", "zh","es", "fr"};
+            JList<String> languageList = new JList<>(languages);
+            languageList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            // Default selection to "eng"
+            languageList.setSelectedIndex(0);
+            JScrollPane languageScrollPane = new JScrollPane(languageList);
+
+            // FIX: Set a more appropriate size for the scrollable list
+            languageScrollPane.setPreferredSize(new Dimension(80, 60));
+            languagePanel.setLayout(new BoxLayout(languagePanel, BoxLayout.Y_AXIS));
+            languagePanel.add(new JLabel("Select Language:"));
+            languagePanel.add(languageScrollPane);
 
             JPanel buttonPanel = new JPanel();
             JButton submit = new JButton("Submit");
@@ -34,21 +46,26 @@ public class GUI {
             JLabel resultLabel = new JLabel("\t\t\t\t\t\t\t");
             buttonPanel.add(resultLabel);
 
-
             // adding listener for when the user clicks the submit button
             submit.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    String language = languageField.getText();
+                    String language = languageList.getSelectedValue();
                     String country = countryField.getText();
+
+                    if (language == null) {
+                        resultLabel.setText("Please select a language!");
+                        return;
+                    }
 
                     // for now, just using our simple translator, but
                     // we'll need to use the real JSON version later.
+                    // NOTE: Assumes Translator and CanadaTranslator exist
                     Translator translator = new CanadaTranslator();
 
                     String result = translator.translate(country, language);
                     if (result == null) {
-                        result = "no translation found!";
+                        result = "no translation found for code: " + language;
                     }
                     resultLabel.setText(result);
 
