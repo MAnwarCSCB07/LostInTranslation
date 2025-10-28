@@ -1,74 +1,123 @@
 package translation;
 
 import javax.swing.*;
-import java.awt.event.*;
+import javax.swing.event.ListSelectionEvent;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;     // java.util.List (avoid java.awt.List)
+import java.util.Map;
 
-
-// TODO Task D: Update the GUI for the program to align with UI shown in the README example.
-//            Currently, the program only uses the CanadaTranslator and the user has
-//            to manually enter the language code they want to use for the translation.
-//            See the examples package for some code snippets that may be useful when updating
-//            the GUI.
 public class GUI {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            JPanel countryPanel = new JPanel();
-            JTextField countryField = new JTextField(10);
-            countryField.setText("can");
-            countryField.setEditable(false); // we only support the "can" country code for now
-            countryPanel.add(new JLabel("Country:"));
-            countryPanel.add(countryField);
+            // ---------- Data sources ----------
+            final Translator translator = new JSONTranslator();
+            final CountryCodeConverter countryConv = new CountryCodeConverter();
+            final LanguageCodeConverter languageConv = new LanguageCodeConverter();
 
-            JPanel languagePanel = new JPanel();
-            JTextField languageField = new JTextField(10);
-            languagePanel.add(new JLabel("Language:"));
-            languagePanel.add(languageField);
+            // ---------- Build languages (names) + map name->code ----------
+            List<String> langCodes = new ArrayList<>(translator.getLanguageCodes()); // e.g., "en","fr",...
+            Collections.sort(langCodes);
 
-            JPanel buttonPanel = new JPanel();
-            JButton submit = new JButton("Submit");
-            buttonPanel.add(submit);
+            final Map<String, String> languageNameToCode = new HashMap<>();
+            List<String> languageNames = new ArrayList<>();
+            for (String code : langCodes) {
+                String lname = languageConv.fromLanguageCode(code.toLowerCase());
+                if (lname == null || lname.isBlank()) lname = code.toLowerCase();
+                languageNames.add(lname);
+                languageNameToCode.put(lname, code.toLowerCase());
+            }
+            languageNames.sort(String.CASE_INSENSITIVE_ORDER);
 
-            JLabel resultLabelText = new JLabel("Translation:");
-            buttonPanel.add(resultLabelText);
-            JLabel resultLabel = new JLabel("\t\t\t\t\t\t\t");
-            buttonPanel.add(resultLabel);
+            // ---------- Build countries (names) + map name->alpha3 ----------
+            List<String> countryCodes = new ArrayList<>(translator.getCountryCodes()); // alpha-3 codes
+            Collections.sort(countryCodes);
 
+            final Map<String, String> countryNameToCode = new HashMap<>();
+            List<String> countryNames = new ArrayList<>();
+            for (String alpha3 : countryCodes) {
+                String cname = countryConv.fromCountryCode(alpha3.toLowerCase()); // -> country name
+                if (cname == null || cname.isBlank()) cname = alpha3.toUpperCase(); // fallback
+                countryNames.add(cname);
+                countryNameToCode.put(cname, alpha3.toUpperCase());
+            }
+            countryNames.sort(String.CASE_INSENSITIVE_ORDER);
 
-            // adding listener for when the user clicks the submit button
-            submit.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    String language = languageField.getText();
-                    String country = countryField.getText();
+            // ---------- UI: top language row ----------
+            JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            top.add(new JLabel("Language:"));
+            JComboBox<String> languageCombo = new JComboBox<>(languageNames.toArray(new String[0]));
+            // default to English if present
+            for (String ln : languageNames) {
+                if ("English".equalsIgnoreCase(ln)) { languageCombo.setSelectedItem(ln); break; }
+            }
+            top.add(languageCombo);
 
-                    // for now, just using our simple translator, but
-                    // we'll need to use the real JSON version later.
-                    Translator translator = new CanadaTranslator();
+            // ---------- UI: translation line ----------
+            JPanel transRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            JLabel transTitle = new JLabel("Translation:");
+            JLabel transValue = new JLabel("—");
+            transValue.setFont(transValue.getFont().deriveFont(Font.BOLD, 14f));
+            transRow.add(transTitle);
+            transRow.add(transValue);
 
-                    String result = translator.translate(country, language);
-                    if (result == null) {
-                        result = "no translation found!";
-                    }
-                    resultLabel.setText(result);
+            // ---------- UI: scrollable country list ----------
+            JList<String> countryList = new JList<>(countryNames.toArray(new String[0]));
+            countryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            countryList.setVisibleRowCount(14);
+            JScrollPane countryScroll = new JScrollPane(countryList);
+            countryScroll.setPreferredSize(new Dimension(300, 260));
 
+            // default select Canada (or first)
+            int idx = countryNames.indexOf("Canada");
+            if (idx < 0 && !countryNames.isEmpty()) idx = 0;
+            if (idx >= 0) {
+                countryList.setSelectedIndex(idx);
+                countryList.ensureIndexIsVisible(idx);
+            }
+
+            // ---------- Behavior: translate on any selection change ----------
+            Runnable update = () -> {
+                String countryName = countryList.getSelectedValue();
+                String languageName = (String) languageCombo.getSelectedItem();
+                if (countryName == null || languageName == null) {
+                    transValue.setText("—");
+                    return;
                 }
+                String alpha3 = countryNameToCode.getOrDefault(countryName, countryName).toUpperCase();
+                String langCode = languageNameToCode.getOrDefault(languageName, languageName).toLowerCase();
 
+                String translated = translator.translate(alpha3, langCode);
+                transValue.setText((translated == null || translated.isBlank()) ? "no translation found!" : translated);
+            };
+
+            countryList.addListSelectionListener((ListSelectionEvent e) -> {
+                if (!e.getValueIsAdjusting()) update.run();
             });
+            languageCombo.addActionListener(e -> update.run());
 
-            JPanel mainPanel = new JPanel();
-            mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-            mainPanel.add(countryPanel);
-            mainPanel.add(languagePanel);
-            mainPanel.add(buttonPanel);
+            // ---------- Main layout ----------
+            JPanel main = new JPanel();
+            main.setLayout(new BoxLayout(main, BoxLayout.Y_AXIS));
+            main.add(top);
+            main.add(transRow);
+            main.add(countryScroll);
 
             JFrame frame = new JFrame("Country Name Translator");
-            frame.setContentPane(mainPanel);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setContentPane(main);
             frame.pack();
+            frame.setLocationRelativeTo(null);
             frame.setVisible(true);
 
-
+            // initial compute
+            update.run();
         });
     }
 }
