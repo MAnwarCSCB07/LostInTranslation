@@ -33,18 +33,33 @@ public class LanguageCodeConverter {
      * @throws RuntimeException if the resources file can't be loaded properly
      */
     public LanguageCodeConverter(String filename) {
-
         try {
-            List<String> lines = Files.readAllLines(Paths.get(getClass()
-                    .getClassLoader().getResource(filename).toURI()));
+            List<String> lines = Files.readAllLines(
+                    Paths.get(getClass().getClassLoader().getResource(filename).toURI())
+            );
 
             Iterator<String> iterator = lines.iterator();
-            iterator.next(); // skip the first line
-            while (iterator.hasNext()) {
-                String line = iterator.next();
-                // TODO Task A: use line to populate the instance variables
+            if (iterator.hasNext()) {
+                iterator.next(); // skip header line
             }
 
+            while (iterator.hasNext()) {
+                String line = iterator.next().trim();
+                if (line.isEmpty()) continue;
+
+                // Expect tab-delimited: <languageName>\t<code>
+                String[] parts = line.split("\\t");
+                if (parts.length < 2) continue; // skip malformed rows
+
+                String language = parts[0].trim();
+                String code = parts[1].trim().toLowerCase();
+
+                if (!language.isEmpty() && !code.isEmpty()) {
+                    // store both directions; normalize language key to lowercase for lookup
+                    languageCodeToLanguage.put(code, language);
+                    languageToLanguageCode.put(language.toLowerCase(), code);
+                }
+            }
         } catch (IOException | URISyntaxException ex) {
             throw new RuntimeException(ex);
         }
@@ -53,21 +68,21 @@ public class LanguageCodeConverter {
     /**
      * Return the name of the language for the given language code.
      * @param code the 2-letter language code
-     * @return the name of the language corresponding to the code
+     * @return the name of the language corresponding to the code, or null if unknown
      */
     public String fromLanguageCode(String code) {
-        // TODO Task A: update this code to use the correct instance variable to return the appropriate value
-        return code;
+        if (code == null) return null;
+        return languageCodeToLanguage.get(code.trim().toLowerCase());
     }
 
     /**
      * Return the code of the language for the given language name.
      * @param language the name of the language
-     * @return the 2-letter code of the language
+     * @return the 2-letter code of the language, or null if unknown
      */
     public String fromLanguage(String language) {
-        // TODO Task A: update this code to use the correct instance variable to return the appropriate value
-        return language;
+        if (language == null) return null;
+        return languageToLanguageCode.get(language.trim().toLowerCase());
     }
 
     /**
